@@ -8,7 +8,8 @@ use tokio::sync::{
 use crate::client::event::{
     DeleteFriendEvent, FriendMessageRecallEvent, FriendPokeEvent, FriendRequestEvent,
     GroupLeaveEvent, GroupMessageEvent, GroupMessageRecallEvent, GroupMuteEvent,
-    GroupNameUpdateEvent, GroupRequestEvent, NewFriendEvent, NewMemberEvent, PrivateMessageEvent,
+    GroupNameUpdateEvent, GroupRequestEvent, MemberPermissionChangeEvent, NewFriendEvent,
+    NewMemberEvent, PrivateMessageEvent, SelfInvitedEvent,
 };
 
 /// 所有需要外发的数据的枚举打包
@@ -27,6 +28,8 @@ pub enum QEvent {
     PrivateMessage(PrivateMessageEvent),
     /// 加群申请
     GroupRequest(GroupRequestEvent),
+    /// 加群申请
+    SelfInvited(SelfInvitedEvent),
     /// 加好友申请
     FriendRequest(FriendRequestEvent),
     /// 新成员入群
@@ -47,6 +50,8 @@ pub enum QEvent {
     GroupNameUpdate(GroupNameUpdateEvent),
     /// 好友删除
     DeleteFriend(DeleteFriendEvent),
+    /// 群成员权限变更
+    MemberPermissionChange(MemberPermissionChangeEvent),
     // FriendList(decoder::friendlist::FriendListResponse),
     // GroupMemberInfo(structs::GroupMemberInfo),
 

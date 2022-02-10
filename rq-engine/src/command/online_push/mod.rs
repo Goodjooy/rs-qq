@@ -1,4 +1,4 @@
-use crate::structs::GroupMemberPermission;
+use crate::structs::{GroupLeave, MemberPermissionChange};
 use crate::{jce, pb};
 
 pub mod builder;
@@ -10,39 +10,18 @@ pub struct ReqPush {
     pub msg_infos: Vec<jce::PushMessageInfo>,
 }
 
-#[derive(Debug, Default)]
-pub struct GroupMuteEvent {}
-
-#[derive(Debug, Default)]
-pub struct GroupMessageRecalledEvent {}
-
-#[derive(Debug, Default)]
-pub struct GroupRedBagLuckyKingNotifyEvent {}
-
-#[derive(Debug, Default)]
-pub struct GroupDigestEvent {}
-
-pub enum OnlinePushTrans {
-    MemberLeave {
-        msg_uid: i64,
-        // 和group_code不一样
-        group_uin: i64,
-        member_uin: i64,
-    },
-    MemberKicked {
-        msg_uid: i64,
-        // 和group_code不一样
-        group_uin: i64,
-        member_uin: i64,
-        operator_uin: i64,
-    },
-    MemberPermissionChanged {
-        msg_uid: i64,
-        // 和group_code不一样
-        group_uin: i64,
-        member_uin: i64,
-        new_permission: GroupMemberPermission,
-    },
+#[derive(Debug, Clone)]
+pub enum PushTransInfo {
+    MemberLeave(GroupLeave),
+    MemberPermissionChange(MemberPermissionChange),
+    // TODO 转让
+}
+#[derive(Debug, Clone)]
+pub struct OnlinePushTrans {
+    pub msg_seq: i32,
+    pub msg_uid: i64,
+    pub msg_time: i32,
+    pub info: PushTransInfo,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -62,22 +41,4 @@ pub struct GroupMessagePart {
     pub pkg_index: i32,
     // 分片id，相同id的应该合并，且根据pkg_index排序
     pub div_seq: i32,
-}
-
-#[derive(Debug, Default)]
-pub struct Sub0x27Event {
-    pub group_name_updated_events: Vec<GroupNameUpdatedEvent>,
-    pub del_friend_events: Vec<i64>,
-}
-
-#[derive(Debug, Default)]
-pub struct GroupNameUpdatedEvent {
-    pub group_code: i64,
-    pub new_name: String,
-    pub operator_uin: i64,
-}
-
-// 需要同步群成员
-pub struct GroupMemberNeedSync {
-    pub group_code: i64,
 }

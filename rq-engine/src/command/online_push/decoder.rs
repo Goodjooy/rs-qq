@@ -2,7 +2,9 @@ use bytes::{Buf, Bytes};
 use jcers::Jce;
 
 use crate::command::common::PbToBytes;
-use crate::command::online_push::*;
+use crate::command::online_push::{GroupMessagePart, OnlinePushTrans, PushTransInfo, ReqPush};
+use crate::common::group_uin2code;
+use crate::structs::{GroupLeave, GroupMemberPermission, MemberPermissionChange};
 use crate::{jce, pb, RQError, RQResult};
 
 impl super::super::super::Engine {
@@ -67,7 +69,6 @@ impl super::super::super::Engine {
     }
 
     // OnlinePush.ReqPush
-    // todo decode_online_push_req_packet
     pub fn decode_online_push_req_packet(&self, mut payload: Bytes) -> RQResult<ReqPush> {
         let mut request: jce::RequestPacket = jcers::from_buf(&mut payload)?;
         let mut data: jce::RequestDataVersion2 = jcers::from_buf(&mut request.s_buffer)?;
@@ -86,11 +87,12 @@ impl super::super::super::Engine {
         Ok(ReqPush { uin, msg_infos })
     }
 
-    // TODO 还没测试
     pub fn decode_online_push_trans_packet(&self, payload: Bytes) -> RQResult<OnlinePushTrans> {
         let info = pb::msg::TransMsgInfo::from_bytes(&payload)
             .map_err(|_| RQError::Decode("failed to decode TransMsgInfo".to_string()))?;
+        let msg_seq = info.msg_seq.unwrap_or_default();
         let msg_uid = info.msg_uid.unwrap_or_default();
+        let msg_time = info.msg_time.unwrap_or_default();
         let group_uin = info.from_uin.ok_or_else(|| {
             RQError::Decode("decode_online_push_trans_packet from_uin is 0".to_string())
         })?;
@@ -108,18 +110,27 @@ impl super::super::super::Engine {
                 let operator = data.get_i32() as i64;
                 match typ {
                     0x02 | 0x82 => {
-                        return Ok(OnlinePushTrans::MemberLeave {
+                        return Ok(OnlinePushTrans {
+                            msg_seq,
                             msg_uid,
-                            group_uin,
-                            member_uin: target,
+                            msg_time,
+                            info: PushTransInfo::MemberLeave(GroupLeave {
+                                group_code: group_uin2code(group_uin),
+                                member_uin: target,
+                                operator_uin: None,
+                            }),
                         });
                     }
                     0x03 | 0x83 => {
-                        return Ok(OnlinePushTrans::MemberKicked {
+                        return Ok(OnlinePushTrans {
+                            msg_seq,
                             msg_uid,
-                            group_uin,
-                            member_uin: target,
-                            operator_uin: operator,
+                            msg_time,
+                            info: PushTransInfo::MemberLeave(GroupLeave {
+                                group_code: group_uin2code(group_uin),
+                                member_uin: target,
+                                operator_uin: Some(operator),
+                            }),
                         });
                     }
                     _ => {}
@@ -129,9 +140,9 @@ impl super::super::super::Engine {
                 data.advance(5);
                 let var4 = data.get_u8() as i32;
                 let mut var5: i64 = 0;
-                let target = data.get_i32() as i64;
+                let target = data.get_u32() as i64;
                 if var4 != 0 && var4 != 1 {
-                    var5 = data.get_i32() as i64;
+                    var5 = data.get_u32() as i64;
                 }
                 if var5 == 0 && data.len() == 1 {
                     let new_permission = if data.get_u8() == 1 {
@@ -139,11 +150,15 @@ impl super::super::super::Engine {
                     } else {
                         GroupMemberPermission::Member
                     };
-                    return Ok(OnlinePushTrans::MemberPermissionChanged {
+                    return Ok(OnlinePushTrans {
+                        msg_seq,
                         msg_uid,
-                        group_uin,
-                        member_uin: target,
-                        new_permission,
+                        msg_time,
+                        info: PushTransInfo::MemberPermissionChange(MemberPermissionChange {
+                            group_code: group_uin2code(group_uin),
+                            member_uin: target,
+                            new_permission,
+                        }),
                     });
                 }
             }
@@ -151,55 +166,6 @@ impl super::super::super::Engine {
         }
         Err(RQError::Decode(
             "decode_online_push_trans_packet unknown error".to_string(),
-        ))
-    }
-
-    pub fn msg_type_0x210_sub27_decoder(&self, protobuf: Bytes) -> RQResult<Sub0x27Event> {
-        let s27 = pb::msgtype0x210::SubMsg0x27Body::from_bytes(&protobuf)
-            .map_err(|_| RQError::Decode("SubMsg0x27Body".to_string()))?;
-        let mut sub_0x27_event = Sub0x27Event::default();
-        for m in s27.mod_infos {
-            if let Some(profile) = m.mod_group_profile {
-                for info in profile.group_profile_infos.into_iter() {
-                    if let Some(field) = info.field {
-                        if field == 1 {
-                            sub_0x27_event
-                                .group_name_updated_events
-                                .push(GroupNameUpdatedEvent {
-                                    group_code: profile.group_code.unwrap_or_default() as i64,
-                                    new_name: String::from_utf8_lossy(
-                                        &info.value.unwrap_or_default(),
-                                    )
-                                    .to_string(),
-                                    operator_uin: profile.cmd_uin.unwrap_or_default() as i64,
-                                });
-                        }
-                    }
-                }
-            }
-            if let Some(ref del_friend) = m.del_friend {
-                sub_0x27_event
-                    .del_friend_events
-                    .append(&mut del_friend.uins.iter().map(|uin| *uin as i64).collect())
-            }
-        }
-        Ok(sub_0x27_event)
-    }
-
-    pub fn msg_type_0x210_sub44_decoder(&self, protobuf: Bytes) -> RQResult<GroupMemberNeedSync> {
-        let b44 =
-            pb::Sub44::from_bytes(&protobuf).map_err(|_| RQError::Decode("Sub44".to_string()))?;
-        let group_code = b44
-            .group_sync_msg
-            .ok_or_else(|| {
-                RQError::Decode("msg_type_0x210_sub44_decoder group_sync_msg is None".to_string())
-            })?
-            .grp_code;
-        if group_code != 0 {
-            return Ok(GroupMemberNeedSync { group_code });
-        }
-        Err(RQError::Decode(
-            "msg_type_0x210_sub44_decoder unknown error".to_string(),
         ))
     }
 }
