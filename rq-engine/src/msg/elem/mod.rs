@@ -98,3 +98,26 @@ impl fmt::Display for RQElem {
         }
     }
 }
+
+macro_rules! impl_from {
+    ($key: tt, $fty: ty) => {
+        impl From<$fty> for RQElem {
+            fn from(e: $fty) -> Self {
+                RQElem::$key(e)
+            }
+        }
+    };
+}
+
+impl_from!(At, at::At);
+impl_from!(Text, text::Text);
+impl_from!(Face, face::Face);
+impl_from!(MarketFace, market_face::MarketFace);
+impl_from!(Dice, market_face::Dice);
+impl_from!(FingerGuessing, market_face::FingerGuessing);
+impl_from!(LightApp, light_app::LightApp);
+impl_from!(RedBag, red_bag::RedBag);
+impl_from!(FriendImage, friend_image::FriendImage);
+impl_from!(GroupImage, group_image::GroupImage);
+impl_from!(Other, Box<msg::elem::Elem>);
+
