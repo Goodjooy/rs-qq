@@ -108,7 +108,6 @@ impl super::Client {
                             resp.msg_infos.clone(),
                         ))
                         .await;
-                    tracing::warn!(target: "rs_qq", "unhandled OnlinePush.ReqPush");
                     cli.process_push_req(resp.msg_infos).await;
                 }
                 "OnlinePush.PbPushTransMsg" => {
@@ -120,8 +119,27 @@ impl super::Client {
                         .unwrap();
                     cli.process_push_trans(online_push_trans).await;
                 }
+                "OnlinePush.PbC2CMsgSync" => {
+                    // 其他设备发送消息，同步
+                    let push = cli
+                        .engine
+                        .read()
+                        .await
+                        .decode_c2c_sync_packet(pkt.body)
+                        .unwrap();
+                    log_error!(
+                        cli.process_c2c_sync(pkt.seq_id, push).await,
+                        "process group message part error: {:?}"
+                    )
+                }
+                "RegPrxySvc.GetMsgV2"
+                | "RegPrxySvc.PbGetMsg"
+                | "RegPrxySvc.NoticeEnd"
+                | "MessageSvc.PushReaded" => {
+                    tracing::trace!(target: "rs_qq", "ignore pkt: {}", &pkt.command_name);
+                }
                 _ => {
-                    tracing::warn!(target: "rs_qq", "unhandled pkt: {}", &pkt.command_name);
+                    tracing::debug!(target: "rs_qq", "unhandled pkt: {}", &pkt.command_name);
                 }
             }
         });

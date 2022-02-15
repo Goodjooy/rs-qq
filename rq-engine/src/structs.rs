@@ -92,6 +92,20 @@ pub struct FriendInfo {
     pub face_id: i16,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct SummaryCardInfo {
+    pub uin: i64,
+    pub sex: u8,
+    pub age: u8,
+    pub nickname: String,
+    pub level: i32,
+    pub city: String,
+    pub sign: String,
+    pub mobile: String,
+    pub login_days: i64,
+    pub q_id: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PrivateMessage {
     pub seqs: Vec<i32>,
@@ -111,6 +125,19 @@ pub struct GroupMessage {
     pub from_uin: i64,
     pub time: i32,
     pub elements: MessageChain,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TempMessage {
+    pub seqs: Vec<i32>,
+    pub from_uin: i64,
+    pub from_nick: String,
+    pub time: i32,
+    pub elements: MessageChain,
+    // 0-Group, 1-MultiChat, 130-AddressBook, 132-HotChat, 132-SystemMessage, 201-Consulting
+    pub service_type: i32,
+    pub group_code: Option<i64>,
+    pub sig: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Default)]

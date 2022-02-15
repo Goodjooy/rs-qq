@@ -6,16 +6,20 @@ use bytes::{Buf, Bytes};
 use futures::{stream, StreamExt};
 use tokio::sync::RwLock;
 
+use rq_engine::command::img_store::GroupImageStoreResp;
 use rq_engine::command::message_svc::MessageSyncResponse;
 use rq_engine::command::oidb_svc::music::{MusicShare, MusicType, SendMusicTarget};
 use rq_engine::common::group_code2uin;
-use rq_engine::msg::elem::Anonymous;
+use rq_engine::highway::BdhInput;
+use rq_engine::msg::elem::{calculate_image_resource_id, Anonymous, GroupImage};
 use rq_engine::msg::MessageChain;
 use rq_engine::pb;
 
 use crate::client::Group;
 use crate::engine::command::{friendlist::*, oidb_svc::*, profile_service::*, wtlogin::*};
-use crate::engine::structs::{FriendInfo, GroupInfo, GroupMemberInfo, MessageReceipt};
+use crate::engine::structs::{
+    FriendInfo, GroupInfo, GroupMemberInfo, MessageReceipt, SummaryCardInfo,
+};
 use crate::handler::QEvent;
 use crate::jce::{SvcDevLoginInfo, SvcRespRegister};
 use crate::{RQError, RQResult};
@@ -351,7 +355,7 @@ impl super::Client {
             0,
             false,
         );
-        self.send(req).await?;
+        let _ = self.send_and_wait(req).await?;
         let mut receipt = MessageReceipt {
             seqs: vec![0],
             rands: vec![ran],
@@ -754,7 +758,7 @@ impl super::Client {
             0,
             0,
         );
-        self.send(req).await?;
+        let _ = self.send_and_wait(req).await?;
         Ok(MessageReceipt {
             seqs: vec![seq],
             rands: vec![ran],
@@ -1029,5 +1033,101 @@ impl super::Client {
             .build_group_recall_packet(group_code, seqs, rands);
         let _ = self.send_and_wait(req).await?;
         Ok(())
+    }
+
+    // 获取名片信息
+    pub async fn get_summary_info(&self, uin: i64) -> RQResult<SummaryCardInfo> {
+        let req = self
+            .engine
+            .read()
+            .await
+            .build_summary_card_request_packet(uin);
+        let resp = self.send_and_wait(req).await?;
+        self.engine
+            .read()
+            .await
+            .decode_summary_card_response(resp.body)
+    }
+
+    // 用 highway 上传群图片之前调用，获取 upload_key
+    // TODO 测试完 highway 改成 pub(crate)
+    pub async fn get_group_image_store(
+        &self,
+        group_code: i64,
+        file_name: String,
+        image_md5: Vec<u8>,
+        size: i32,
+    ) -> RQResult<GroupImageStoreResp> {
+        let req = self
+            .engine
+            .read()
+            .await
+            .build_group_image_store_packet(group_code, file_name, image_md5, size);
+        let resp = self.send_and_wait(req).await?;
+        self.engine
+            .read()
+            .await
+            .decode_group_image_store_response(resp.body)
+    }
+
+    /// 上传群图片
+    pub async fn upload_group_image(
+        &self,
+        group_code: i64,
+        image: Vec<u8>,
+        file_name: String,
+    ) -> RQResult<GroupImage> {
+        let image_md5 = md5::compute(&image).to_vec();
+        let image_size = image.len() as i32;
+        let req = self
+            .get_group_image_store(group_code, file_name, image_md5.clone(), image_size)
+            .await?;
+        match req {
+            GroupImageStoreResp::Exist {
+                file_id,
+                height,
+                width,
+            } => Ok(GroupImage {
+                image_id: calculate_image_resource_id(&image_md5, false),
+                file_id: file_id as i64,
+                size: image_size,
+                width: width as i32,
+                height: height as i32,
+                md5: image_md5,
+                ..Default::default()
+            }),
+            GroupImageStoreResp::NotExist {
+                file_id,
+                upload_key,
+                mut upload_addrs,
+            } => {
+                // TODO addr ?
+                let addr = upload_addrs
+                    .pop()
+                    .ok_or_else(|| RQError::Other("upload_addrs is empty".into()))?;
+                self.highway_upload_bdh(
+                    addr,
+                    BdhInput {
+                        command_id: 2,
+                        body: image,
+                        ticket: upload_key,
+                        ext: vec![],
+                        encrypt: false,
+                    },
+                )
+                .await?;
+                // TODO width, height
+                // TODO image_type
+                Ok(GroupImage {
+                    image_id: calculate_image_resource_id(&image_md5, false),
+                    file_id: file_id as i64,
+                    size: image_size,
+                    width: 720,
+                    height: 480,
+                    md5: image_md5,
+                    ..Default::default()
+                })
+            }
+        }
     }
 }
