@@ -1,7 +1,10 @@
 use bytes::Bytes;
 
-use crate::jce;
+pub use crate::command::multi_msg::{ForwardMessage, ForwardNode, MessageNode};
+pub use crate::command::oidb_svc::ProfileDetailUpdate;
+pub use crate::command::stat_svc::{CustomOnlineStatus, ExtOnlineStatus, OnlineStatus, Status};
 use crate::msg::MessageChain;
+use crate::{jce, pb};
 
 #[derive(Default, Debug)]
 pub struct AccountInfo {
@@ -107,7 +110,7 @@ pub struct SummaryCardInfo {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct PrivateMessage {
+pub struct FriendMessage {
     pub seqs: Vec<i32>,
     pub rands: Vec<i32>,
     pub target: i64,
@@ -208,4 +211,31 @@ pub struct MessageReceipt {
     pub seqs: Vec<i32>,
     pub rands: Vec<i32>,
     pub time: i64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GroupAudio(pub pb::msg::Ptt);
+
+#[derive(Debug, Clone, Default)]
+pub struct GroupAudioMessage {
+    pub seqs: Vec<i32>,
+    pub rands: Vec<i32>,
+    pub group_code: i64,
+    pub from_uin: i64,
+    pub time: i32,
+    pub audio: GroupAudio,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FriendAudio(pub pb::msg::Ptt);
+
+#[derive(Debug, Clone, Default)]
+pub struct FriendAudioMessage {
+    pub seqs: Vec<i32>,
+    pub rands: Vec<i32>,
+    pub target: i64,
+    pub time: i32,
+    pub from_uin: i64,
+    pub from_nick: String,
+    pub audio: FriendAudio,
 }

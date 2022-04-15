@@ -8,12 +8,13 @@ pub use crate::msg::elem::{
     anonymous::Anonymous,
     at::At,
     face::Face,
+    flash_image::FlashImage,
     friend_image::FriendImage,
     group_image::GroupImage,
     light_app::LightApp,
     market_face::{Dice, FingerGuessing, MarketFace},
-    red_bag::RedBag,
     reply::Reply,
+    rich_msg::RichMsg,
     text::Text,
 };
 use crate::pb::msg;
@@ -21,12 +22,13 @@ use crate::pb::msg;
 mod anonymous;
 mod at;
 mod face;
+mod flash_image;
 mod friend_image;
 mod group_image;
 mod light_app;
 mod market_face;
-mod red_bag;
 mod reply;
+mod rich_msg;
 mod text;
 
 #[derive(Debug, Clone)]
@@ -38,9 +40,10 @@ pub enum RQElem {
     Dice(market_face::Dice),
     FingerGuessing(market_face::FingerGuessing),
     LightApp(light_app::LightApp),
-    RedBag(red_bag::RedBag),
+    RichMsg(rich_msg::RichMsg),
     FriendImage(friend_image::FriendImage),
     GroupImage(group_image::GroupImage),
+    FlashImage(flash_image::FlashImage),
     Other(Box<msg::elem::Elem>),
 }
 
@@ -58,6 +61,19 @@ impl From<msg::elem::Elem> for RQElem {
             msg::elem::Elem::Face(e) => RQElem::Face(face::Face::from(e)),
             msg::elem::Elem::CommonElem(e) => match e.service_type() {
                 // TODO image
+                3 => {
+                    if let Ok(flash) = msg::MsgElemInfoServtype3::decode(e.pb_elem()) {
+                        if let Some(i) = flash.flash_troop_pic {
+                            RQElem::FlashImage(group_image::GroupImage::from(i).flash())
+                        } else if let Some(i) = flash.flash_c2c_pic {
+                            RQElem::FlashImage(friend_image::FriendImage::from(i).flash())
+                        } else {
+                            RQElem::Other(Box::new(elem))
+                        }
+                    } else {
+                        RQElem::Other(Box::new(elem))
+                    }
+                }
                 33 => {
                     if let Ok(new_face) = msg::MsgElemInfoServtype33::decode(e.pb_elem()) {
                         RQElem::Face(face::Face::from(new_face))
@@ -78,7 +94,7 @@ impl From<msg::elem::Elem> for RQElem {
                 }
             }
             msg::elem::Elem::LightApp(e) => RQElem::LightApp(light_app::LightApp::from(e)),
-            msg::elem::Elem::QqWalletMsg(e) => RQElem::RedBag(red_bag::RedBag::from(e)),
+            msg::elem::Elem::RichMsg(e) => RQElem::RichMsg(rich_msg::RichMsg::from(e)),
             msg::elem::Elem::NotOnlineImage(e) => {
                 RQElem::FriendImage(friend_image::FriendImage::from(e))
             }
@@ -96,6 +112,7 @@ impl fmt::Display for RQElem {
             RQElem::Face(e) => fmt::Display::fmt(e, f),
             RQElem::GroupImage(e) => fmt::Display::fmt(e, f),
             RQElem::FriendImage(e) => fmt::Display::fmt(e, f),
+            RQElem::FlashImage(e) => fmt::Display::fmt(e, f),
             _ => write!(f, ""),
         }
     }
@@ -118,7 +135,8 @@ impl_from!(MarketFace, market_face::MarketFace);
 impl_from!(Dice, market_face::Dice);
 impl_from!(FingerGuessing, market_face::FingerGuessing);
 impl_from!(LightApp, light_app::LightApp);
-impl_from!(RedBag, red_bag::RedBag);
+impl_from!(RichMsg, rich_msg::RichMsg);
 impl_from!(FriendImage, friend_image::FriendImage);
 impl_from!(GroupImage, group_image::GroupImage);
+impl_from!(FlashImage, flash_image::FlashImage);
 impl_from!(Other, Box<msg::elem::Elem>);

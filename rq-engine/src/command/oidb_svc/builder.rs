@@ -2,10 +2,26 @@ use bytes::{BufMut, BytesMut};
 
 use crate::command::common::PbToBytes;
 use crate::command::oidb_svc::music::{MusicShare, MusicVersion, SendMusicTarget};
+use crate::command::oidb_svc::ProfileDetailUpdate;
 use crate::pb;
 use crate::protocol::packet::Packet;
 
 impl super::super::super::Engine {
+    // OidbSvc.0x4ff_9_IMCore
+    pub fn build_update_profile_detail_packet(&self, profile: ProfileDetailUpdate) -> Packet {
+        let mut w = BytesMut::new();
+        w.put_u32(self.uin() as u32);
+        w.put_u8(0);
+        w.put_u16(profile.0.len() as u16);
+        for (tag, value) in profile.0 {
+            w.put_u16(tag);
+            w.put_u16(value.len() as u16);
+            w.put_slice(&value);
+        }
+        let payload = self.transport.encode_oidb_packet(0x4ff, 9, w.freeze());
+        self.uni_packet("OidbSvc.0x4ff_9_IMCore", payload)
+    }
+
     // OidbSvc.0x88d_0
     pub fn build_group_info_request_packet(&self, group_codes: Vec<i64>) -> Packet {
         let body = pb::oidb::D88dReqBody {

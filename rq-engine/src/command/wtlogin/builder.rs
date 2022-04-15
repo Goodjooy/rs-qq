@@ -476,7 +476,7 @@ impl super::super::super::Engine {
     }
 
     // wtlogin.exchange_emp
-    pub fn build_request_change_sig_packet(&self) -> Packet {
+    pub fn build_request_change_sig_packet(&self, main_sig_map: Option<u32>) -> Packet {
         let seq = self.next_seq();
         let transport = &self.transport;
         let req = self.build_oicq_request_packet(self.uin(), 0x810, &{
@@ -487,7 +487,7 @@ impl super::super::super::Engine {
             w.put_slice(&t100(
                 transport.version.sso_version,
                 100,
-                transport.version.main_sig_map,
+                main_sig_map.unwrap_or(transport.version.main_sig_map),
             ));
             w.put_slice(&t10a(&transport.sig.tgt));
             w.put_slice(&t116(
@@ -639,19 +639,15 @@ impl super::super::super::Engine {
             w.put_slice(&t187(&transport.device.mac_address));
             w.put_slice(&t188(&transport.device.android_id));
 
-            if !transport.device.imsi_md5.is_empty() {
-                w.put_slice(&t194(&transport.device.imsi_md5))
-            }
+            w.put_slice(&t194(&transport.device.imsi_md5));
 
             if allow_slider {
                 w.put_slice(&t191(0x82));
             }
-            if !transport.device.wifi_bssid.is_empty() && !transport.device.wifi_ssid.is_empty() {
-                w.put_slice(&t202(
-                    &transport.device.wifi_bssid,
-                    &transport.device.wifi_ssid,
-                ));
-            }
+            w.put_slice(&t202(
+                &transport.device.wifi_bssid,
+                &transport.device.wifi_ssid,
+            ));
             w.put_slice(&t177(
                 transport.version.build_time,
                 transport.version.sdk_version,

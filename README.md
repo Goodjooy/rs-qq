@@ -9,7 +9,7 @@ qq-android 协议的 rust 实现 移植于 MiraiGo、OICQ、Mirai
 本项目是协议 lib, 不推荐直接基于本项目开发。
 
 Rust 用户推荐使用 [RQ-Tower](https://github.com/lz1998/rq-tower),
-基于 [Demo](https://github.com/lz1998/rq-tower/tree/main/examples/demo) 修改。
+基于 [Demo](https://github.com/lz1998/rq-tower/tree/main/examples/demo) 修改，或 [rust_proc_qq](https://github.com/niuhuan/rust_proc_qq)。
 
 其他语言用户推荐使用 [(WIP)Walle-Q](https://github.com/abrahum/walle-q), 基于 OneBot 协议开发。
 
@@ -36,8 +36,8 @@ Rust 用户推荐使用 [RQ-Tower](https://github.com/lz1998/rq-tower),
 - [x] 匿名
 - [x] 骰子
 - [x] 石头剪刀布
-- [ ] 图片
-- [ ] 语音
+- [x] 图片
+- [x] 语音
 - [ ] 长消息(仅群聊/私聊)
 - [ ] 链接分享
 - [ ] 小程序(暂只支持RAW)
@@ -70,6 +70,7 @@ Rust 用户推荐使用 [RQ-Tower](https://github.com/lz1998/rq-tower),
 
 > 为防止滥用，将不支持主动邀请新成员进群
 
+- [x] 修改昵称
 - [x] 发送群消息
 - [x] 获取/刷新群列表
 - [x] 获取/刷新群成员列表
@@ -96,6 +97,9 @@ Rust 用户推荐使用 [RQ-Tower](https://github.com/lz1998/rq-tower),
 - [x] 处理好友请求
 - [x] 删除好友
 - [x] 获取陌生人信息
+- [x] 设置在线状态
+- [x] 修改个人资料
+- [x] 修改个性签名
 - [ ] 获取群荣誉 (龙王/群聊火焰等)
 - [ ] 获取群文件下载链接
 - [ ] ~~群成员邀请~~
